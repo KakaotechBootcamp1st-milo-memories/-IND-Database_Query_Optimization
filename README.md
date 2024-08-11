@@ -353,14 +353,74 @@ ORDER BY e.hire_date DESC;
 
 ## 인덱스 통계 수집 및 분석
 ### 인덱스 통계 수집
-#### employees 테이블
-```sql
-ANALYZE TABLE employees;
-```
-<img width="342" alt="image" src="https://github.com/user-attachments/assets/8c130e70-fa1b-48fe-bbbf-948da0b079f6">
+- 우선 information_schema.STATISTICS테이블을 이용하여 데이터베이스의 인덱스와 관련된 기본적인 메타데이터를 확인해보겠습니다.
 
-#### salaries 테이블
-```sql
-ANALYZE TABLE salaries;
+``` mysql
+SELECT TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, CARDINALITY
+FROM information_schema.STATISTICS
+WHERE TABLE_SCHEMA = 'employees';
 ```
-<img width="342" alt="image" src="https://github.com/user-attachments/assets/fe5d5326-6898-4b39-8dbc-25e9a4a3f990">
+
+<img width="997" alt="image" src="https://github.com/user-attachments/assets/e67384cd-4cd1-48cf-977e-3cdee5150dac">
+
+- TABLE_NAME: 인덱스가 적용된 테이블의 이름.
+- INDEX_NAME: 인덱스의 이름.
+- SEQ_IN_INDEX: 인덱스에서 열(column)이 나오는 순서.
+- COLUMN_NAME: 인덱스가 적용된 열(column)의 이름.
+- CARDINALITY: 인덱스가 커버하는 고유 값의 수, 값이 높을수록 인덱스의 효율성이 높다고 판단할 수 있습니다.
+- 테이블을 분석하기 전 카디널리티에 대해 더 알아보자면 카디널리티는 해당 컬럼의 중복된 수치인데, 중복도가 낮으면 카디널리티가 높다고 표현하고, 중복도가 높으면 카디널리티가 낮다고 표현합니다.
+- 테이블 조회시 카디널리티가 높은 순으로 필터링하여 조회하기 때문에 여러 컬럼을 인덱스로 생성할 경우, 카디널리티가 높은 순에서 낮은 순으로 구성하는 것이 좋습니다.
+​
+- 그러면 전체 행 개수와 카디널리티를 비교하며 테이블 별 인덱스를 분석해보겠습니다.
+
+#### 테이블별 인덱스 분석
+
+<img width="997" alt="image" src="https://github.com/user-attachments/assets/b63cf585-ec5d-45e8-894e-fb32da80d6ca">
+
+### 1. **departments 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 9
+- **카디널리티 (`CARDINALITY`)**: 9 (`dept_name`, `dept_no`)
+- `departments` 테이블의 행 개수와 `dept_name`, `dept_no` 인덱스의 카디널리티가 모두 9이며 이는 각 행이 고유한 부서 번호와 이름을 가지고 있음을 나타냅니다.
+- 인덱스의 카디널리티가 테이블의 전체 행 개수와 같으므로, 이 인덱스는 검색에 있어 매우 효율적일 것입니다.
+
+### 2. **dept_emp 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 331,143
+- **카디널리티 (`CARDINALITY`)**:
+    - `emp_no` (PRIMARY): 299,600
+    - `dept_no`: 8
+- 이 테이블의 대부분의 행이 고유한 `emp_no`를 가지고 있어, 이 열을 기준으로 하는 검색은 효율적일 것으로 예상됩니다.
+- `dept_no`는 8개의 고유 값을 가지므로, 인덱스의 카디널리티가 낮아 `dept_no` 인덱스가 특정 부서를 검색할 때는 적합할 수 있지만, 인덱스 자체가 고유 값을 가진 데이터와 비교하면 효율성은 매우 떨어질 것으로 예상됩니다.
+
+### 3. **dept_manager 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 24
+- **카디널리티 (`CARDINALITY`)**:
+    - `emp_no` (PRIMARY): 24
+    - `dept_no`: 9
+- `emp_no`의 카디널리티는 행 개수와 동일하므로, 이 인덱스는 각 행이 고유한 직원 번호를 가지고 있음을 나타냅니다. 이는 인덱스가 매우 효율적으로 작동할 수 있음을 의미합니다.
+- `dept_no`의 카디널리티는 9로, 직원 별로 동일한 부서 번호를 가지고 있다는 것을 의미합니다. 이로 인해 `dept_no`를 기준으로 하는 검색에서는 인덱스의 효율성이 낮을 것으로 예상됩니다.
+
+### 4. **employees 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 299,556
+- **카디널리티 (`CARDINALITY`)**:
+    - `emp_no` (PRIMARY): 299,556
+    - `hire_date`: 4,747
+- `emp_no`의 카디널리티가 전체 행 수와 일치하므로 모든 행이 고유한 `emp_no`를 가지므로, `emp_no`를 기준으로 검색할 때 인덱스의 성능이 효율적일 것입니다.
+- `hire_date`의 카디널리티는 4,747로, 전체 행 수에 비해 많이 낮은 편입니다. 이 열의 인덱스가 특정한 날짜 범위를 검색할 때 효율적일 수 있지만, 전체적으로 인덱스의 고유성이 떨어질 것입니다.
+
+### 5. **salaries 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 2,838,426
+- **카디널리티 (`CARDINALITY`)**:
+    - `emp_no` (PRIMARY): 303,596
+    - `salary`: 71,272
+    - `from_date`: 5,926
+- 카디널리티가 가장 높은 `emp_no`의 카디널리티도 전체 행 수에 비해서는 낮지만, 다른 행의 비해서는 직원별 데이터를 검색할 때 효율적일 것입니다..
+- `salary`와 `from_date`의 카디널리티는 상대적으로 낮아, 이 인덱스들이 특정 범위의 값을 검색할 때는 유용할 수 있으나, 전체적으로는 인덱스의 고유성이 떨어집니다.
+
+### 6. **titles 테이블**
+- **행 개수 (`TABLE_ROWS`)**: 442,129
+- **카디널리티 (`CARDINALITY`)**:
+    - `emp_no` (PRIMARY): 300,103
+    - `title`: 442,129
+    - `from_date`: 442,129
+- `title`과 `from_date`의 카디널리티가 전체 행 수와 동일하므로 인덱스가 매우 효율적으로 작동할 수 있음을 나타냅니다.
+- `emp_no`의 카디널리티가 전체 행 수보다는 낮지만, 그래도 높은 값을 가지고 있기 때문에 이를 이용한 검색도 아주 비효율적이지는 않을 것입니다.
