@@ -11,6 +11,10 @@
 3. 복합 인덱스를 설계하여 다중 열 검색을 최적화합니다.
 4. 쿼리 캐시를 활용하여 반복적인 쿼리에 대한 성능을 개선합니다.
 
+## 사용 데이터베이스
+- 데이터베이스 실습에서 좀 더 많은 데이터를 다뤄보기 위해 mysql에서 제공하는 샘플 데이터를 사용했습니다!
+- https://dev.mysql.com/doc/index-other.html로 접속하여 Example Databases가 있는데 이 중 employee data (large dataset, includes data and test/verification suite)를 사용하였습니다!
+
 ## 인덱스 사용 이유
 ### 조회 성능 개선
 데이터베이스에서 성능 최적화는 디스크 I/O와 관련이 많습니다.
